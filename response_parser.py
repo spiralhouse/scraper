@@ -1,7 +1,7 @@
 import logging
-from typing import List, Optional, Set
+from typing import Optional, Set
 from urllib.parse import urljoin, urlparse
-import re
+
 from bs4 import BeautifulSoup
 
 
