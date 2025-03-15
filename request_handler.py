@@ -19,7 +19,7 @@ class RequestHandler:
             timeout: int = 30,
             max_retries: int = 3,
             backoff_factor: float = 0.3,
-            user_agent: str = "ScraperBot (https://github.com/jburbridge/scraper)"
+            user_agent: str = "ScraperBot (https://github.com/johnburbridge/scraper)"
     ):
         """
         Initialize the RequestHandler with configurable parameters.
