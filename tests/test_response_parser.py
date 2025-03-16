@@ -1,10 +1,6 @@
 import unittest
-import sys
-import os
 
-# Add the parent directory to sys.path to import the module
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from response_parser import ResponseParser
+from scraper.response_parser import ResponseParser
 
 
 class TestResponseParser(unittest.TestCase):

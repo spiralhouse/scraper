@@ -1,12 +1,8 @@
 import unittest
 from unittest.mock import patch, Mock, MagicMock
 import requests
-import sys
-import os
 
-# Add the parent directory to sys.path to import the module
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from request_handler import RequestHandler
+from scraper.request_handler import RequestHandler
 
 
 class TestRequestHandler(unittest.TestCase):
