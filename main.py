@@ -67,6 +67,8 @@ def main() -> int:
     parser.add_argument("--print-pages", action="store_true", help="Print scraped pages to console")
     parser.add_argument("--ignore-robots", action="store_true", help="Ignore robots.txt rules")
     parser.add_argument("--use-sitemap", action="store_true", help="Use sitemap.xml for URL discovery")
+    parser.add_argument("--max-subsitemaps", type=int, default=5, help="Maximum number of sub-sitemaps to process (default: 5)")
+    parser.add_argument("--sitemap-timeout", type=int, default=30, help="Timeout in seconds for sitemap processing (default: 30)")
     
     args = parser.parse_args()
     
@@ -106,7 +108,9 @@ def main() -> int:
         request_delay=args.delay,
         on_page_crawled=callback,
         respect_robots_txt=not args.ignore_robots,
-        use_sitemap=args.use_sitemap
+        use_sitemap=args.use_sitemap,
+        max_subsitemaps=args.max_subsitemaps,
+        sitemap_timeout=args.sitemap_timeout
     )
     
     try:

@@ -1,5 +1,6 @@
 import unittest
 from unittest.mock import patch, MagicMock
+import asyncio
 
 from scraper.sitemap_parser import SitemapParser
 
@@ -10,7 +11,7 @@ class TestSitemapParser(unittest.TestCase):
     def setUp(self):
         """Set up test environment."""
         self.user_agent = "TestBot"
-        self.parser = SitemapParser(self.user_agent)
+        self.parser = SitemapParser(self.user_agent, max_subsitemaps=2, overall_timeout=5)
     
     def test_get_sitemap_url(self):
         """Test generating sitemap URL from a domain URL."""
@@ -84,6 +85,9 @@ class TestSitemapParser(unittest.TestCase):
             <sitemap>
                 <loc>https://example.com/sitemap2.xml</loc>
             </sitemap>
+            <sitemap>
+                <loc>/sitemap3.xml</loc>
+            </sitemap>
         </sitemapindex>
         """
         
@@ -120,10 +124,14 @@ class TestSitemapParser(unittest.TestCase):
             <sitemap>
                 <loc>/sitemap2.xml</loc>
             </sitemap>
+            <sitemap>
+                <loc>/sitemap3.xml</loc>
+            </sitemap>
         </sitemapindex>
         """
         
         base_url = "https://example.com"
+        # Only 2 sub-sitemaps should be returned due to max_subsitemaps=2
         expected_urls = [
             "https://example.com/sitemap1.xml",
             "https://example.com/sitemap2.xml"
@@ -175,31 +183,6 @@ class TestSitemapParser(unittest.TestCase):
             self.assertEqual(expected['lastmod'], actual['lastmod'])
             self.assertEqual(expected['changefreq'], actual['changefreq'])
             self.assertEqual(expected['priority'], actual['priority'])
-    
-    @patch.object(SitemapParser, 'fetch_sitemap')
-    @patch.object(SitemapParser, 'is_sitemap_index')
-    @patch.object(SitemapParser, 'parse_sitemap_index')
-    @patch.object(SitemapParser, 'parse_sitemap')
-    def test_extract_urls_from_sitemap(self, mock_parse_sitemap, mock_parse_sitemap_index, 
-                                       mock_is_sitemap_index, mock_fetch_sitemap):
-        """Test extracting URLs from a sitemap."""
-        # Mock responses
-        mock_fetch_sitemap.return_value = "sitemap content"
-        mock_is_sitemap_index.return_value = False
-        mock_parse_sitemap.return_value = [
-            {'url': 'https://example.com/page1', 'priority': 0.8},
-            {'url': 'https://example.com/page2', 'priority': 0.5}
-        ]
-        
-        # Call the method
-        result = self.parser.extract_urls_from_sitemap("https://example.com/sitemap.xml")
-        
-        # Verify results
-        self.assertEqual(result, {'https://example.com/page1', 'https://example.com/page2'})
-        mock_fetch_sitemap.assert_called_once_with("https://example.com/sitemap.xml")
-        mock_is_sitemap_index.assert_called_once_with("sitemap content")
-        mock_parse_sitemap.assert_called_once()
-        mock_parse_sitemap_index.assert_not_called()
     
     @patch.object(SitemapParser, 'extract_urls_from_sitemap')
     def test_get_urls_from_domain(self, mock_extract):

@@ -31,7 +31,9 @@ class Crawler:
         user_agent: str = "ScraperBot (https://github.com/johnburbridge/scraper)",
         on_page_crawled: Optional[Callable[[str, dict], None]] = None,
         respect_robots_txt: bool = True,
-        use_sitemap: bool = False
+        use_sitemap: bool = False,
+        max_subsitemaps: int = 5,
+        sitemap_timeout: int = 30
     ):
         """
         Initialize the Crawler with configurable parameters.
@@ -48,6 +50,8 @@ class Crawler:
             on_page_crawled: Optional callback function called when a page is crawled
             respect_robots_txt: Whether to respect robots.txt rules (default: True)
             use_sitemap: Whether to use sitemap.xml for URL discovery (default: False)
+            max_subsitemaps: Maximum number of sub-sitemaps to process (default: 5)
+            sitemap_timeout: Timeout in seconds for sitemap processing (default: 30)
         """
         self.max_depth = max_depth
         self.allow_external_domains = allow_external_domains
@@ -58,6 +62,8 @@ class Crawler:
         self.on_page_crawled = on_page_crawled
         self.respect_robots_txt = respect_robots_txt
         self.use_sitemap = use_sitemap
+        self.max_subsitemaps = max_subsitemaps
+        self.sitemap_timeout = sitemap_timeout
         
         self.logger = logging.getLogger(__name__)
         self.cache = Cache(use_persistent=use_cache, cache_dir=cache_dir)
@@ -67,7 +73,11 @@ class Crawler:
         self.robots_parser = RobotsParser(user_agent) if respect_robots_txt else None
         
         # Initialize sitemap parser if needed
-        self.sitemap_parser = SitemapParser(user_agent) if use_sitemap else None
+        self.sitemap_parser = SitemapParser(
+            user_agent, 
+            max_subsitemaps=max_subsitemaps, 
+            overall_timeout=sitemap_timeout
+        ) if use_sitemap else None
         
         # Stats tracking
         self.stats = {
