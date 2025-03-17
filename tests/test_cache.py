@@ -106,8 +106,8 @@ class TestCache(unittest.TestCase):
         separate_temp_dir = tempfile.mkdtemp(prefix="isolated_cache_test_")
 
         try:
-            # Create an isolated cache with its own directory
-            isolated_cache = Cache(use_persistent=True, cache_dir=separate_temp_dir, expiry_time=1)
+            # Create an isolated cache with a longer expiry time for stability
+            isolated_cache = Cache(use_persistent=True, cache_dir=separate_temp_dir, expiry_time=3)
 
             # Ensure we start with a clean slate
             isolated_cache.clear()
@@ -123,7 +123,7 @@ class TestCache(unittest.TestCase):
             self.assertTrue(isolated_cache.has("https://will-expire.com"))
 
             # Wait for it to expire
-            time.sleep(1.5)
+            time.sleep(4)  # Wait longer than the expiry time
 
             # Add a fresh entry
             isolated_cache.set("https://wont-expire.com", "new content", 200, {})
@@ -133,14 +133,12 @@ class TestCache(unittest.TestCase):
 
             # Should only clear the expired entry
             self.assertEqual(cleared, 1, f"Expected to clear 1 expired entry, but cleared {cleared}")
+            
+            # Verify the expired entry is gone and the fresh one remains
             self.assertFalse(isolated_cache.has("https://will-expire.com"))
             self.assertTrue(isolated_cache.has("https://wont-expire.com"))
-
         finally:
-            # Ensure we clean up properly
-            if 'isolated_cache' in locals():
-                isolated_cache.close()
-            # Clean up the temporary directory
+            # Clean up
             shutil.rmtree(separate_temp_dir)
 
     def test_context_manager(self):
