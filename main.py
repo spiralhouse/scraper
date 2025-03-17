@@ -35,6 +35,12 @@ def print_stats(stats: Dict[str, Any]) -> None:
     print(f"Pages Crawled: {stats['pages_crawled']}")
     print(f"Pages Skipped (from cache): {stats['pages_skipped']}")
     print(f"Total URLs Visited: {stats['total_urls']}")
+    
+    # Print sitemap stats if available
+    if "sitemap_urls_found" in stats:
+        print(f"Sitemap URLs Found: {stats['sitemap_urls_found']}")
+        print(f"Sitemap URLs Used: {stats['sitemap_urls_used']}")
+    
     print(f"Duration: {stats['duration']:.2f} seconds")
     print("==============================\n")
 
@@ -58,7 +64,9 @@ def main() -> int:
     parser.add_argument("--delay", type=float, default=0.1, help="Delay between requests in seconds (default: 0.1)")
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose logging")
     parser.add_argument("--output-dir", help="Directory to save results as JSON files")
-    parser.add_argument("--print-pages", action="store_true", help="Print page info to console during crawl")
+    parser.add_argument("--print-pages", action="store_true", help="Print scraped pages to console")
+    parser.add_argument("--ignore-robots", action="store_true", help="Ignore robots.txt rules")
+    parser.add_argument("--use-sitemap", action="store_true", help="Use sitemap.xml for URL discovery")
     
     args = parser.parse_args()
     
@@ -96,7 +104,9 @@ def main() -> int:
         use_cache=not args.no_cache,
         cache_dir=args.cache_dir,
         request_delay=args.delay,
-        on_page_crawled=callback
+        on_page_crawled=callback,
+        respect_robots_txt=not args.ignore_robots,
+        use_sitemap=args.use_sitemap
     )
     
     try:

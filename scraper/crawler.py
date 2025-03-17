@@ -7,6 +7,8 @@ import time
 from scraper.cache_manager import Cache
 from scraper.request_handler import RequestHandler
 from scraper.response_parser import ResponseParser
+from scraper.robots_parser import RobotsParser
+from scraper.sitemap_parser import SitemapParser
 
 
 class Crawler:
@@ -27,7 +29,9 @@ class Crawler:
         cache_dir: Optional[str] = None,
         request_delay: float = 0.1,
         user_agent: str = "ScraperBot (https://github.com/johnburbridge/scraper)",
-        on_page_crawled: Optional[Callable[[str, dict], None]] = None
+        on_page_crawled: Optional[Callable[[str, dict], None]] = None,
+        respect_robots_txt: bool = True,
+        use_sitemap: bool = False
     ):
         """
         Initialize the Crawler with configurable parameters.
@@ -42,6 +46,8 @@ class Crawler:
             request_delay: Delay between requests in seconds (default: 0.1)
             user_agent: User-agent string to identify the crawler
             on_page_crawled: Optional callback function called when a page is crawled
+            respect_robots_txt: Whether to respect robots.txt rules (default: True)
+            use_sitemap: Whether to use sitemap.xml for URL discovery (default: False)
         """
         self.max_depth = max_depth
         self.allow_external_domains = allow_external_domains
@@ -50,10 +56,18 @@ class Crawler:
         self.request_delay = request_delay
         self.user_agent = user_agent
         self.on_page_crawled = on_page_crawled
+        self.respect_robots_txt = respect_robots_txt
+        self.use_sitemap = use_sitemap
         
         self.logger = logging.getLogger(__name__)
         self.cache = Cache(use_persistent=use_cache, cache_dir=cache_dir)
         self.request_handler = RequestHandler(user_agent=user_agent)
+        
+        # Initialize robots.txt parser if needed
+        self.robots_parser = RobotsParser(user_agent) if respect_robots_txt else None
+        
+        # Initialize sitemap parser if needed
+        self.sitemap_parser = SitemapParser(user_agent) if use_sitemap else None
         
         # Stats tracking
         self.stats = {
@@ -116,6 +130,18 @@ class Crawler:
             
         self.visited_urls.add(url)
         
+        # Check robots.txt rules if enabled
+        if self.respect_robots_txt and self.robots_parser:
+            if not self.robots_parser.is_allowed(url):
+                self.logger.info(f"Skipping {url} (disallowed by robots.txt)")
+                return set()
+            
+            # Adjust request delay based on crawl-delay directive
+            robots_delay = self.robots_parser.get_crawl_delay(url)
+            delay = max(self.request_delay, robots_delay)
+        else:
+            delay = self.request_delay
+        
         # Check cache first
         cached_response = self.cache.get(url)
         
@@ -125,7 +151,7 @@ class Crawler:
             self.stats["pages_skipped"] += 1
         else:
             # Respect request delay
-            await asyncio.sleep(self.request_delay)
+            await asyncio.sleep(delay)
             
             # Make request
             async with self.semaphore:
@@ -221,8 +247,34 @@ class Crawler:
         parsed_start_url = urlparse(start_url)
         base_domain = parsed_start_url.netloc.lower()
         
-        # Start crawling
-        await self._crawl_recursive(start_url, 1, base_domain)
+        # Use sitemap for URL discovery if enabled
+        initial_urls = set([start_url])
+        sitemap_urls = set()
+        
+        if self.use_sitemap and self.sitemap_parser:
+            self.logger.info(f"Fetching sitemap for {start_url}")
+            sitemap_urls = self.sitemap_parser.get_urls_from_domain(start_url)
+            
+            # Filter URLs by domain restrictions
+            filtered_sitemap_urls = {
+                url for url in sitemap_urls
+                if self._is_allowed_domain(url, base_domain)
+            }
+            
+            if filtered_sitemap_urls:
+                self.logger.info(f"Found {len(filtered_sitemap_urls)} URLs from sitemap")
+                initial_urls.update(filtered_sitemap_urls)
+                self.stats["sitemap_urls_found"] = len(sitemap_urls)
+                self.stats["sitemap_urls_used"] = len(filtered_sitemap_urls)
+        
+        # Start crawling from all initial URLs
+        tasks = []
+        for url in initial_urls:
+            task = asyncio.create_task(self._crawl_recursive(url, 1, base_domain))
+            tasks.append(task)
+            
+        if tasks:
+            await asyncio.gather(*tasks)
         
         # Update stats
         self.stats["end_time"] = time.time()
@@ -247,4 +299,5 @@ class Crawler:
     
     def close(self) -> None:
         """Clean up resources used by the crawler."""
-        self.request_handler.close() 
+        self.request_handler.close()
+        self.cache.close() 
