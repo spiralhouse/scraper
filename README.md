@@ -1,5 +1,8 @@
 # Scraper
 
+[![Python Tests](https://github.com/johnburbridge/scraper/actions/workflows/python-package.yml/badge.svg)](https://github.com/johnburbridge/scraper/actions/workflows/python-package.yml)
+[![Coverage](https://codecov.io/gh/johnburbridge/scraper/branch/main/graph/badge.svg)](https://codecov.io/gh/johnburbridge/scraper)
+
 ## Objectives
 * Given a URL, recursively crawl its links
   * Store the response
