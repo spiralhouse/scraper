@@ -71,3 +71,5 @@ htmlcov/
 coverage.xml
 *.cover
 /example-site/*
+/cache/*
+/results/*
