@@ -213,7 +213,7 @@ class Cache:
         Returns:
             Number of entries cleared
         """
-        cleared_count = 0
+        cleared_urls = set()  # Track unique URLs cleared
         current_time = time.time()
 
         # Clear expired entries from memory cache
@@ -221,7 +221,7 @@ class Cache:
                         if current_time - entry['timestamp'] >= self.expiry_time]
         for url in expired_urls:
             del self.memory_cache[url]
-            cleared_count += 1
+            cleared_urls.add(url)
 
         # Clear expired entries from persistent cache if enabled
         if self.use_persistent and self.conn:
@@ -229,26 +229,26 @@ class Cache:
                 cursor = self.conn.cursor()
                 expire_time = int(current_time - self.expiry_time)
 
-                # First, get the count of entries to be deleted
+                # Get URLs of entries to be deleted
                 cursor.execute(
-                    "SELECT COUNT(*) FROM cache WHERE timestamp < ?",
+                    "SELECT url FROM cache WHERE timestamp < ?",
                     (expire_time,)
                 )
-                db_cleared_count = cursor.fetchone()[0]
+                db_expired_urls = {row[0] for row in cursor.fetchall()}
 
-                # Then perform the delete
+                # Perform the delete
                 cursor.execute(
                     "DELETE FROM cache WHERE timestamp < ?",
                     (expire_time,)
                 )
 
-                cleared_count = cleared_count + db_cleared_count
+                cleared_urls.update(db_expired_urls)
                 self.conn.commit()
-                self.logger.info(f"Cleared {cleared_count} expired cache entries")
+                self.logger.info(f"Cleared {len(cleared_urls)} expired cache entries")
             except Exception as e:
                 self.logger.error(f"Error clearing expired cache entries: {str(e)}")
 
-        return cleared_count
+        return len(cleared_urls)
 
     def close(self) -> None:
         """Close the cache and release resources."""

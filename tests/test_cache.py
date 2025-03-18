@@ -106,40 +106,60 @@ class TestCache(unittest.TestCase):
         separate_temp_dir = tempfile.mkdtemp(prefix="isolated_cache_test_")
 
         try:
-            # Create an isolated cache with its own directory
-            isolated_cache = Cache(use_persistent=True, cache_dir=separate_temp_dir, expiry_time=1)
+            # Create an isolated cache with a 10 second expiry time
+            isolated_cache = Cache(use_persistent=True, cache_dir=separate_temp_dir, expiry_time=10)
 
             # Ensure we start with a clean slate
             isolated_cache.clear()
 
-            # Verify we're starting with a clean state by trying to get a known URL
-            self.assertIsNone(isolated_cache.get("https://will-expire.com"))
-            self.assertIsNone(isolated_cache.get("https://wont-expire.com"))
+            # Get current time
+            current_time = time.time()
 
-            # Add a single entry that will expire
+            # Add an expired entry (20 seconds old)
             isolated_cache.set("https://will-expire.com", "old content", 200, {})
-
-            # Verify it was added
-            self.assertTrue(isolated_cache.has("https://will-expire.com"))
-
-            # Wait for it to expire
-            time.sleep(1.5)
+            # Manually update the timestamp to make it expired
+            isolated_cache.memory_cache["https://will-expire.com"]["timestamp"] = current_time - 20
+            if isolated_cache.use_persistent and isolated_cache.conn:
+                cursor = isolated_cache.conn.cursor()
+                cursor.execute(
+                    "UPDATE cache SET timestamp = ? WHERE url = ?",
+                    (int(current_time - 20), "https://will-expire.com")
+                )
+                isolated_cache.conn.commit()
 
             # Add a fresh entry
             isolated_cache.set("https://wont-expire.com", "new content", 200, {})
+
+            # Verify entries exist in memory cache
+            self.assertIn("https://will-expire.com", isolated_cache.memory_cache)
+            self.assertIn("https://wont-expire.com", isolated_cache.memory_cache)
+
+            # Verify entries exist in persistent cache
+            if isolated_cache.use_persistent and isolated_cache.conn:
+                cursor = isolated_cache.conn.cursor()
+                cursor.execute("SELECT url FROM cache WHERE url = ?", ("https://will-expire.com",))
+                self.assertIsNotNone(cursor.fetchone())
+                cursor.execute("SELECT url FROM cache WHERE url = ?", ("https://wont-expire.com",))
+                self.assertIsNotNone(cursor.fetchone())
 
             # Clear expired entries and check count
             cleared = isolated_cache.clear_expired()
 
             # Should only clear the expired entry
             self.assertEqual(cleared, 1, f"Expected to clear 1 expired entry, but cleared {cleared}")
-            self.assertFalse(isolated_cache.has("https://will-expire.com"))
-            self.assertTrue(isolated_cache.has("https://wont-expire.com"))
 
+            # Verify the expired entry is gone and the fresh one remains
+            self.assertNotIn("https://will-expire.com", isolated_cache.memory_cache)
+            self.assertIn("https://wont-expire.com", isolated_cache.memory_cache)
+
+            # Verify persistent cache state
+            if isolated_cache.use_persistent and isolated_cache.conn:
+                cursor = isolated_cache.conn.cursor()
+                cursor.execute("SELECT url FROM cache WHERE url = ?", ("https://will-expire.com",))
+                self.assertIsNone(cursor.fetchone())
+                cursor.execute("SELECT url FROM cache WHERE url = ?", ("https://wont-expire.com",))
+                self.assertIsNotNone(cursor.fetchone())
         finally:
-            # Ensure we clean up properly
-            if 'isolated_cache' in locals():
-                isolated_cache.close()
             # Clean up the temporary directory
             shutil.rmtree(separate_temp_dir)
 
