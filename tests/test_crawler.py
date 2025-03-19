@@ -11,13 +11,22 @@ from scraper.cache_manager import Cache
 
 def async_run(coro):
     """Helper function to run coroutines in tests with a fresh event loop."""
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
+    try:
+        # Try to get an existing event loop
+        loop = asyncio.get_event_loop()
+        if loop.is_closed():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+    except RuntimeError:
+        # Create a new event loop if there isn't one
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+    
     try:
         return loop.run_until_complete(coro)
     finally:
-        loop.close()
-        asyncio.set_event_loop(None)
+        # Clean up but don't close the loop as it might be reused
+        pass
 
 
 class TestCrawler(unittest.TestCase):
@@ -25,6 +34,12 @@ class TestCrawler(unittest.TestCase):
 
     def setUp(self):
         """Set up test fixtures."""
+        # Create and set an event loop for Python 3.9 compatibility
+        try:
+            asyncio.get_event_loop()
+        except RuntimeError:
+            asyncio.set_event_loop(asyncio.new_event_loop())
+            
         self.crawler = Crawler(
             max_depth=2,
             concurrency_limit=5,
@@ -35,6 +50,20 @@ class TestCrawler(unittest.TestCase):
     def tearDown(self):
         """Clean up after tests."""
         self.crawler.close()
+        # Reset the event loop for next test
+        try:
+            # Get the current event loop
+            loop = asyncio.get_event_loop()
+            # If the loop is running, stop it
+            if loop.is_running():
+                loop.stop()
+            # Close it
+            loop.close()
+        except RuntimeError:
+            pass  # No event loop exists
+        finally:
+            # Reset to None to clean up
+            asyncio.set_event_loop(None)
 
     def test_is_allowed_domain_same_domain(self):
         """Test that same domain is always allowed."""
