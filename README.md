@@ -30,6 +30,12 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
+## Requirements
+
+- **Python**: Compatible with Python 3.9, 3.10, 3.11, and 3.12
+- All dependencies are listed in the `requirements.txt` file and are automatically installed during the installation process.
+- Some optional dependencies are available for development in `requirements-dev.txt`.
+
 ## Basic Usage
 
 To start crawling a website:
