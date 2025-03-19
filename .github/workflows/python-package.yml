@@ -36,12 +36,16 @@ jobs:
           flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
       - name: Test with pytest and coverage
         run: |
-          pytest --cov=scraper --cov-report=xml --cov-report=term-missing --cov-fail-under=70
-      - name: Upload coverage reports to Codecov
+          pytest --cov --junitxml=junit.xml --cov-report=term-missing --cov-fail-under=70
+      - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          slug: spiralhouse/scraper
-          file: ./coverage.xml
           fail_ci_if_error: true
           verbose: true
+      - name: Upload test results to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/test-results-action@v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+
