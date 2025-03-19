@@ -1,7 +1,5 @@
 # Web Scraper Test Environment
 
-[← Back to README](README.md)
-
 This directory contains a complete local test environment for testing the web scraper against a controlled website with a known structure.
 
 ## Generated Test Site
