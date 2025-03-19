@@ -16,7 +16,7 @@ This guide provides instructions for setting up a development environment, runni
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/johnburbridge/scraper.git
+git clone https://github.com/spiralhouse/scraper.git
 cd scraper
 ```
 
